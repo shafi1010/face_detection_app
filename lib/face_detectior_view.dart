@@ -62,7 +62,7 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
   Widget build(BuildContext context) {
     return DetectorView(
       title: 'Face Detector',
-      key: _cameraViewKey,
+      cameraViewKey: _cameraViewKey,
       customPaint: _customPaint,
       text: _text,
       onImage: _processImage,
