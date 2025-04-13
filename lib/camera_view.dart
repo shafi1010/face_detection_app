@@ -156,6 +156,19 @@ class CameraViewState extends State<CameraView> {
 
 // Modify captureStillImage
   Future<Uint8List?> captureStillImage() async {
+    if (!_controller!.value.isInitialized) return null;
+
+    try {
+      final XFile file = await _controller!.takePicture();
+      final bytes = await file.readAsBytes();
+      return bytes;
+    } catch (e) {
+      print("Error taking picture: $e");
+      return null;
+    }
+  }
+
+  /* Future<Uint8List?> captureStillImage() async {
     print("📸 Starting image capture");
 
     if (_controller == null || !_controller!.value.isInitialized) {
@@ -200,7 +213,7 @@ class CameraViewState extends State<CameraView> {
 
       return null;
     }
-  }
+  }*/
 
   Future _startLiveFeed() async {
     final camera = _cameras[_cameraIndex];

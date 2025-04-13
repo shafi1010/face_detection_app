@@ -87,7 +87,23 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
 // In FaceDetectorView, use this _processImage method:
   Future<void> _processImage(InputImage inputImage) async {
     if (!_canProcess || _isBusy) return;
+
     _isBusy = true;
+
+    // 🕒 Add throttle here:
+    if (_faceDetected) {
+      print("Already detected a face recently, skipping...");
+      _isBusy = false;
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastCaptureTime != null &&
+        now.difference(_lastCaptureTime!) < const Duration(seconds: 3)) {
+      print("Too soon to capture again, skipping...");
+      _isBusy = false;
+      return;
+    }
 
     setState(() {
       _text = '';
@@ -105,17 +121,14 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
           inputImage.metadata!.rotation,
           _cameraLensDirection,
         );
-
         _customPaint = CustomPaint(painter: painter);
       } else {
         _customPaint = null;
       }
 
       if (faces.isNotEmpty) {
-        // Find the primary face (you can add more sophisticated selection logic)
         final Face primaryFace = faces.first;
 
-        // Optional: Check for quality criteria
         bool isGoodFace = primaryFace.headEulerAngleY != null &&
             primaryFace.headEulerAngleY!.abs() < 15 &&
             primaryFace.headEulerAngleZ != null &&
@@ -129,11 +142,11 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
             _text = 'Face detected! Capturing...';
           });
 
-          // Try to capture the image
           final imageBytes = await _captureStillImage();
           print("Image captured? ${imageBytes != null}");
 
           if (imageBytes != null && mounted) {
+            _lastCaptureTime = DateTime.now(); // ✅ Record the capture time here
             print("Navigating to preview page...");
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -141,7 +154,6 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
               ),
             );
 
-            // Reset detection state when returning
             setState(() {
               _faceDetected = false;
               _text = '';
@@ -173,7 +185,5 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
     _isBusy = false;
     if (mounted) setState(() {});
   }
-
-
 
 }
