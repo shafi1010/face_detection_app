@@ -7,6 +7,8 @@ import 'camera_view.dart';
 enum DetectorViewMode { liveFeed, gallery }
 
 class DetectorView extends StatefulWidget {
+  final GlobalKey<CameraViewState>? cameraViewKey;
+
   const DetectorView({
     super.key,
     required this.title,
@@ -31,7 +33,6 @@ class DetectorView extends StatefulWidget {
   final Function(DetectorViewMode mode)? onDetectorViewModeChanged;
   final Function(CameraLensDirection direction)? onCameraLensDirectionChanged;
   final CameraLensDirection initialCameraLensDirection;
-  final GlobalKey<CameraViewState>? cameraViewKey;
   final bool faceDetected;
 
   @override
@@ -49,31 +50,15 @@ class _DetectorViewState extends State<DetectorView> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children:[
-        CameraView(
-          key: widget.cameraViewKey,
-          text: widget.text,
-          customPaint: widget.customPaint,
-          onImage: widget.onImage,
-          onCameraFeedReady: widget.onCameraFeedReady,
-          onDetectorViewModeChanged: _onDetectorViewModeChanged,
-          initialCameraLensDirection: widget.initialCameraLensDirection,
-          onCameraLensDirectionChanged: widget.onCameraLensDirectionChanged,
-        ),
-
-        Positioned(
-          bottom: 100,
-          child: Container(
-            padding: EdgeInsets.all(12),
-            color: Colors.black54,
-            child: Text(
-              widget.faceDetected ? "✓ Face Captured!" : "🔍 Searching for face...",
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
-          ),
-        )
-      ],
+    return CameraView(
+      key: widget.cameraViewKey,
+      text: widget.text,
+      customPaint: widget.customPaint,
+      onImage: widget.onImage,
+      onCameraFeedReady: widget.onCameraFeedReady,
+      onDetectorViewModeChanged: _onDetectorViewModeChanged,
+      initialCameraLensDirection: widget.initialCameraLensDirection,
+      onCameraLensDirectionChanged: widget.onCameraLensDirectionChanged,
     );
   }
 

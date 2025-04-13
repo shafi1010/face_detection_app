@@ -21,6 +21,7 @@ class FaceDetectorView extends StatefulWidget {
 }
 
 class _FaceDetectorViewState extends State<FaceDetectorView> {
+  final GlobalKey<CameraViewState> _cameraViewKey = GlobalKey<CameraViewState>();
   Future<Uint8List?> _captureStillImage() async {
     final CameraViewState? cameraViewState =
     _cameraViewKey.currentState;
@@ -49,8 +50,6 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
   CustomPaint? _customPaint;
   String? _text;
   var _cameraLensDirection = CameraLensDirection.front;
-  // Declare the GlobalKey
-  final GlobalKey<CameraViewState> _cameraViewKey = GlobalKey<CameraViewState>();
 
   @override
   void dispose() {
