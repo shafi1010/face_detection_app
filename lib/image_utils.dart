@@ -44,34 +44,49 @@ Future<String> getLocalPath(String path) async {
   return '${(await getApplicationSupportDirectory()).path}/$path';
 }
 
+// Make sure this exists in your image_utils.dart
 Uint8List convertYUV420ToNV21(CameraImage image) {
-  final int width = image.width;
-  final int height = image.height;
-  final int uvRowStride = image.planes[1].bytesPerRow;
-  final int uvPixelStride = image.planes[1].bytesPerPixel!;
+  final width = image.width;
+  final height = image.height;
 
-  final Uint8List yBuffer = image.planes[0].bytes;
-  final Uint8List uBuffer = image.planes[1].bytes;
-  final Uint8List vBuffer = image.planes[2].bytes;
+  final yRowStride = image.planes[0].bytesPerRow;
+  final uvRowStride = image.planes[1].bytesPerRow;
+  final uvPixelStride = image.planes[1].bytesPerPixel!;
 
-  final Uint8List nv21 = Uint8List(width * height + (width * height) ~/ 2);
+  final size = width * height + width * height ~/ 2;
+  final nv21 = Uint8List(size);
 
-  int uvIndex = width * height;
-
-  for (int i = 0; i < height; i++) {
-    int yRowStart = i * image.planes[0].bytesPerRow;
-    for (int j = 0; j < width; j++) {
-      nv21[i * width + j] = yBuffer[yRowStart + j];
+  // Copy Y plane
+  final yBuffer = image.planes[0].bytes;
+  if (yRowStride == width) {
+    // Fast path when there's no row padding
+    nv21.setRange(0, width * height, yBuffer);
+  } else {
+    // Need to handle row padding
+    for (int row = 0; row < height; row++) {
+      nv21.setRange(
+          row * width,
+          row * width + width,
+          yBuffer.sublist(row * yRowStride, row * yRowStride + width)
+      );
     }
   }
 
-  for (int i = 0; i < height ~/ 2; i++) {
-    for (int j = 0; j < width ~/ 2; j++) {
-      final int uvPos = i * uvRowStride + j * uvPixelStride;
-      nv21[uvIndex++] = vBuffer[uvPos];
-      nv21[uvIndex++] = uBuffer[uvPos];
+  // Copy UV data
+  final uBuffer = image.planes[1].bytes;
+  final vBuffer = image.planes[2].bytes;
+
+  for (int row = 0; row < height ~/ 2; row++) {
+    for (int col = 0; col < width ~/ 2; col++) {
+      final uvIndex = col * uvPixelStride + row * uvRowStride;
+      final nv21Index = width * height + row * width + col * 2;
+
+      nv21[nv21Index + 1] = uBuffer[uvIndex];
+      nv21[nv21Index] = vBuffer[uvIndex];
     }
   }
 
   return nv21;
 }
+
+

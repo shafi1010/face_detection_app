@@ -27,10 +27,11 @@ class CameraView extends StatefulWidget {
   final CameraLensDirection initialCameraLensDirection;
 
   @override
-  State<CameraView> createState() => _CameraViewState();
+  CameraViewState createState() => CameraViewState();
 }
 
-class _CameraViewState extends State<CameraView> {
+class CameraViewState extends State<CameraView> {
+
   static List<CameraDescription> _cameras = [];
   CameraController? _controller;
   int _cameraIndex = -1;
@@ -38,6 +39,8 @@ class _CameraViewState extends State<CameraView> {
   double _minAvailableZoom = 1.0;
   double _maxAvailableZoom = 1.0;
   bool _changingCameraLens = false;
+  // Add these variables
+  double _targetCaptureResolution = 1.0; // 0.0-1.0 scale
 
   @override
   void initState() {
@@ -151,6 +154,53 @@ class _CameraViewState extends State<CameraView> {
     ),
   );
 
+// Modify captureStillImage
+  Future<Uint8List?> captureStillImage() async {
+    print("📸 Starting image capture");
+
+    if (_controller == null || !_controller!.value.isInitialized) {
+      print("❌ Camera controller not initialized");
+      return null;
+    }
+
+    try {
+      // Temporarily stop the stream
+      print("🛑 Stopping image stream");
+      await _controller!.stopImageStream();
+
+      // Give the camera a moment to adjust
+      await Future.delayed(Duration(milliseconds: 300));
+
+      print("📷 Taking picture");
+      final XFile file = await _controller!.takePicture();
+      print("✅ Picture taken: ${file.path}");
+
+      // Read the file
+      final bytes = await File(file.path).readAsBytes();
+      print("📊 Image size: ${bytes.length} bytes");
+
+      // Restart the stream
+      print("▶️ Restarting stream");
+      await _controller!.startImageStream(_processCameraImage);
+
+      return bytes;
+    } catch (e) {
+      print("❌ Capture error: $e");
+
+      // Make sure we restart the stream even if there's an error
+      try {
+        if (_controller != null &&
+            _controller!.value.isInitialized &&
+            !_controller!.value.isStreamingImages) {
+          await _controller!.startImageStream(_processCameraImage);
+        }
+      } catch (streamError) {
+        print("❌ Error restarting stream: $streamError");
+      }
+
+      return null;
+    }
+  }
 
   Future _startLiveFeed() async {
     final camera = _cameras[_cameraIndex];
@@ -208,12 +258,6 @@ class _CameraViewState extends State<CameraView> {
     widget.onImage(inputImage);
   }
 
-/*  void _processCameraImage(CameraImage image) {
-    final inputImage = _inputImageFromCameraImage(image);
-    if (inputImage == null) return;
-    widget.onImage(inputImage);
-  }*/
-
 
   final _orientations = {
     DeviceOrientation.portraitUp: 0,
@@ -227,132 +271,46 @@ class _CameraViewState extends State<CameraView> {
 
     final camera = _cameras[_cameraIndex];
     final sensorOrientation = camera.sensorOrientation;
-    final deviceOrientation = _controller!.value.deviceOrientation;
-    print("Camera lens direction: ${camera.lensDirection}");
-    print("Sensor orientation: $sensorOrientation");
-    print("Device orientation: $deviceOrientation");
 
-    // Calculate image rotation
-    int? rotationCompensation = _orientations[deviceOrientation];
-    if (rotationCompensation == null) return null;
-
-    if (camera.lensDirection == CameraLensDirection.front) {
-      rotationCompensation = (sensorOrientation + rotationCompensation) % 360;
+    InputImageRotation rotation;
+    if (Platform.isIOS) {
+      rotation = InputImageRotationValue.fromRawValue(sensorOrientation) ?? InputImageRotation.rotation0deg;
     } else {
-      rotationCompensation = (sensorOrientation - rotationCompensation + 360) % 360;
+      var rotationCompensation = _orientations[_controller!.value.deviceOrientation] ?? 0;
+      if (camera.lensDirection == CameraLensDirection.front) {
+        rotationCompensation = (sensorOrientation + rotationCompensation) % 360;
+      } else {
+        rotationCompensation = (sensorOrientation - rotationCompensation + 360) % 360;
+      }
+      rotation = InputImageRotationValue.fromRawValue(rotationCompensation) ?? InputImageRotation.rotation0deg;
     }
 
-    final rotation = InputImageRotationValue.fromRawValue(rotationCompensation);
-    print("Rotation compensation: $rotationCompensation");
-    print("Final Android rotation: $rotation");
-
-    if (rotation == null) return null;
-
-    // Format check
-    final format = InputImageFormatValue.fromRawValue(image.format.raw);
-    print("Image format: $format");
-    if (format == null) return null;
-
-    if (Platform.isAndroid && format != InputImageFormat.nv21) {
-      // Must convert from YUV_420_888 to NV21 manually
-      print("Platform-specific format check failed");
-
-      try {
-        final bytes = convertYUV420ToNV21(image);
-        final metadata = InputImageMetadata(
-          size: Size(image.width.toDouble(), image.height.toDouble()),
-          rotation: rotation,
-          format: InputImageFormat.nv21,
-          bytesPerRow: image.planes[0].bytesPerRow,
-        );
-
-        return InputImage.fromBytes(bytes: bytes, metadata: metadata);
-      } catch (e) {
-        print("Error converting image: $e");
-        return null;
-      }
+    // Handle platform-specific image formats
+    if (Platform.isAndroid) {
+      final bytes = convertYUV420ToNV21(image);
+      final metadata = InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: InputImageFormat.nv21,
+        bytesPerRow: image.planes[0].bytesPerRow,
+      );
+      return InputImage.fromBytes(bytes: bytes, metadata: metadata);
+    } else if (Platform.isIOS) {
+      final metadata = InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: InputImageFormat.bgra8888,
+        bytesPerRow: image.planes[0].bytesPerRow,
+      );
+      return InputImage.fromBytes(
+        bytes: image.planes[0].bytes,
+        metadata: metadata,
+      );
     }
 
     return null;
   }
 
 
-/*  InputImage? _inputImageFromCameraImage(CameraImage image) {
-    if (_controller == null) {
-      print('Camera controller is null');
-      return null;
-    }
-
-    // Get camera info
-    final camera = _cameras[_cameraIndex];
-    final sensorOrientation = camera.sensorOrientation;
-    print('Camera lens direction: ${camera.lensDirection}');
-    print('Sensor orientation: $sensorOrientation');
-    print('Device orientation: ${_controller!.value.deviceOrientation}');
-
-    // Calculate rotation
-    InputImageRotation? rotation;
-    if (Platform.isIOS) {
-      rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
-      print('iOS rotation: $rotation');
-    } else if (Platform.isAndroid) {
-      var rotationCompensation = _orientations[_controller!.value.deviceOrientation];
-      if (rotationCompensation == null) {
-        print('Could not determine rotation compensation');
-        return null;
-      }
-
-      print('Rotation compensation: $rotationCompensation');
-
-      if (camera.lensDirection == CameraLensDirection.front) {
-        rotationCompensation = (sensorOrientation + rotationCompensation) % 360;
-      } else {
-        rotationCompensation = (sensorOrientation - rotationCompensation + 360) % 360;
-      }
-
-      rotation = InputImageRotationValue.fromRawValue(rotationCompensation);
-      print('Final Android rotation: $rotation');
-    }
-
-    if (rotation == null) {
-      print('Failed to determine rotation');
-      return null;
-    }
-
-    // Check format
-    final format = InputImageFormatValue.fromRawValue(image.format.raw);
-    print('Image format: $format');
-
-    if (format == null) {
-      print('Unsupported image format: ${image.format.raw}');
-      return null;
-    }
-
-    // Platform-specific format validation
-    if ((Platform.isAndroid && format != InputImageFormat.nv21) ||
-        (Platform.isIOS && format != InputImageFormat.bgra8888)) {
-      print('Platform-specific format check failed');
-      return null;
-    }
-
-    // Check planes
-    if (image.planes.length != 1) {
-      print('Unexpected number of planes: ${image.planes.length}');
-      return null;
-    }
-
-    final plane = image.planes.first;
-    print('Image plane: bytes=${plane.bytes.length}, bytesPerRow=${plane.bytesPerRow}');
-
-    return InputImage.fromBytes(
-      bytes: plane.bytes,
-      metadata: InputImageMetadata(
-        size: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: rotation,
-        format: format,
-        bytesPerRow: plane.bytesPerRow,
-      ),
-    );
-  }*/
 
 }

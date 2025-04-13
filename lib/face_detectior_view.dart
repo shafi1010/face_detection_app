@@ -3,9 +3,11 @@
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:face_detection_app/face_preview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_ml_kit/google_ml_kit.dart';
 
+import 'camera_view.dart';
 import 'detector_view.dart';
 import 'face_detector_painter.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
@@ -19,6 +21,18 @@ class FaceDetectorView extends StatefulWidget {
 }
 
 class _FaceDetectorViewState extends State<FaceDetectorView> {
+  Future<Uint8List?> _captureStillImage() async {
+    final CameraViewState? cameraViewState =
+    _cameraViewKey.currentState;
+
+    if (cameraViewState == null) {
+      print("ERROR: Could not access camera view state");
+      return null;
+    }
+
+    return await cameraViewState.captureStillImage();
+  }
+
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
       enableContours: true,
@@ -26,11 +40,17 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
       performanceMode: FaceDetectorMode.fast
     ),
   );
+
+  // Add these variables at the top
+  bool _faceDetected = false;
+  DateTime? _lastCaptureTime;
   bool _canProcess = true;
   bool _isBusy = false;
   CustomPaint? _customPaint;
   String? _text;
   var _cameraLensDirection = CameraLensDirection.front;
+  // Declare the GlobalKey
+  final GlobalKey<CameraViewState> _cameraViewKey = GlobalKey<CameraViewState>();
 
   @override
   void dispose() {
@@ -43,6 +63,7 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
   Widget build(BuildContext context) {
     return DetectorView(
       title: 'Face Detector',
+      key: _cameraViewKey,
       customPaint: _customPaint,
       text: _text,
       onImage: _processImage,
@@ -52,108 +73,107 @@ class _FaceDetectorViewState extends State<FaceDetectorView> {
   }
 
 
+  bool _isGoodFace(Face face) {
+    // Ensure face is large enough and well-positioned
+    final bounds = face.boundingBox;
+    final faceSize = bounds.width * bounds.height;
+    final screenSize = MediaQuery.of(context).size;
+    final minFaceSize = screenSize.width * screenSize.height * 0.1; // 10% of screen
+
+    return faceSize > minFaceSize &&
+        (face.headEulerAngleY?.abs() ?? 0) < 30 && // Not too angled
+        (face.smilingProbability ?? 0) > 0.4; // Optional: only smiling faces
+  }
+
+// In FaceDetectorView, use this _processImage method:
   Future<void> _processImage(InputImage inputImage) async {
     if (!_canProcess || _isBusy) return;
-
     _isBusy = true;
+
     setState(() {
       _text = '';
     });
 
     try {
-      debugPrint("Detecting faces...");
+      print("Processing image for face detection...");
       final faces = await _faceDetector.processImage(inputImage);
+      print("Found ${faces.length} faces");
 
-      if (faces.isNotEmpty) {
-        debugPrint("Face detected!");
-
-        // Optionally show preview image or navigate to a preview screen
-        final imageBytes = await inputImage.bytes; // This is pseudo-code
-        // Save or display the imageBytes
-        if (imageBytes != null) {
-          // Show the preview dialog
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            //_showFacePreviewDialog(context, imageBytes);
-          });
-        }
-        // Call your API to match
-       // await _matchWithApi(imageBytes as Uint8List); // Implement this function
-      }
-
-      if (inputImage.metadata?.size != null &&
-          inputImage.metadata?.rotation != null) {
-        _customPaint = CustomPaint(
-          painter: FaceDetectorPainter(
-            faces,
-            inputImage.metadata!.size,
-            inputImage.metadata!.rotation,
-            _cameraLensDirection,
-          ),
+      if (inputImage.metadata?.size != null && inputImage.metadata?.rotation != null) {
+        final painter = FaceDetectorPainter(
+          faces,
+          inputImage.metadata!.size,
+          inputImage.metadata!.rotation,
+          _cameraLensDirection,
         );
+
+        _customPaint = CustomPaint(painter: painter);
       } else {
         _customPaint = null;
       }
+
+      if (faces.isNotEmpty) {
+        // Find the primary face (you can add more sophisticated selection logic)
+        final Face primaryFace = faces.first;
+
+        // Optional: Check for quality criteria
+        bool isGoodFace = primaryFace.headEulerAngleY != null &&
+            primaryFace.headEulerAngleY!.abs() < 15 &&
+            primaryFace.headEulerAngleZ != null &&
+            primaryFace.headEulerAngleZ!.abs() < 10;
+
+        if (isGoodFace) {
+          print("Good face detected! Attempting to capture image...");
+
+          setState(() {
+            _faceDetected = true;
+            _text = 'Face detected! Capturing...';
+          });
+
+          // Try to capture the image
+          final imageBytes = await _captureStillImage();
+          print("Image captured? ${imageBytes != null}");
+
+          if (imageBytes != null && mounted) {
+            print("Navigating to preview page...");
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => FacePreviewPage(imageBytes: imageBytes),
+              ),
+            );
+
+            // Reset detection state when returning
+            setState(() {
+              _faceDetected = false;
+              _text = '';
+            });
+          } else {
+            print("Failed to capture image bytes");
+            setState(() {
+              _faceDetected = false;
+              _text = 'Failed to capture image';
+            });
+          }
+        } else {
+          setState(() {
+            _text = 'Face detected, but adjust position for better quality';
+          });
+        }
+      } else {
+        setState(() {
+          _text = 'No face detected';
+        });
+      }
     } catch (e) {
-      debugPrint("Error during face detection: $e");
+      print("Error during face detection: $e");
+      setState(() {
+        _text = 'Error: $e';
+      });
     }
 
     _isBusy = false;
     if (mounted) setState(() {});
   }
-
-  void _showFacePreviewDialog(BuildContext context, Uint8List imageBytes) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Face Detected'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.memory(imageBytes),
-            const SizedBox(height: 16),
-            const Text('Face detected successfully!'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
- /* Future<void> _matchWithApi(Uint8List imageBytes) async {
-    print("okay");
-    return;
-    try {
-      debugPrint("Sending image to API for matching...");
-
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('https://your.api/face-match'),
-      )
-        ..files.add(http.MultipartFile.fromBytes(
-          'image',
-          imageBytes as List<int>,
-          filename: 'captured_face.jpg',
-        ));
-
-      final response = await request.send();
-
-      if (response.statusCode == 200) {
-        final responseBody = await response.stream.bytesToString();
-        debugPrint("Match result: $responseBody");
-
-        // Show result in UI or navigate to another screen
-      } else {
-        debugPrint("API error: ${response.statusCode}");
-      }
-    } catch (e) {
-      debugPrint("Failed to send image: $e");
-    }
-  }*/
 
 
 

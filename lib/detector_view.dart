@@ -18,6 +18,8 @@ class DetectorView extends StatefulWidget {
     this.onCameraFeedReady,
     this.onDetectorViewModeChanged,
     this.onCameraLensDirectionChanged,
+    this.cameraViewKey,
+    this.faceDetected = false,
   });
 
   final String title;
@@ -29,6 +31,8 @@ class DetectorView extends StatefulWidget {
   final Function(DetectorViewMode mode)? onDetectorViewModeChanged;
   final Function(CameraLensDirection direction)? onCameraLensDirectionChanged;
   final CameraLensDirection initialCameraLensDirection;
+  final GlobalKey<CameraViewState>? cameraViewKey;
+  final bool faceDetected;
 
   @override
   State<DetectorView> createState() => _DetectorViewState();
@@ -45,14 +49,31 @@ class _DetectorViewState extends State<DetectorView> {
 
   @override
   Widget build(BuildContext context) {
-    return CameraView(
-      text: widget.text,
-      customPaint: widget.customPaint,
-      onImage: widget.onImage,
-      onCameraFeedReady: widget.onCameraFeedReady,
-      onDetectorViewModeChanged: _onDetectorViewModeChanged,
-      initialCameraLensDirection: widget.initialCameraLensDirection,
-      onCameraLensDirectionChanged: widget.onCameraLensDirectionChanged,
+    return Stack(
+      children:[
+        CameraView(
+          key: widget.cameraViewKey,
+          text: widget.text,
+          customPaint: widget.customPaint,
+          onImage: widget.onImage,
+          onCameraFeedReady: widget.onCameraFeedReady,
+          onDetectorViewModeChanged: _onDetectorViewModeChanged,
+          initialCameraLensDirection: widget.initialCameraLensDirection,
+          onCameraLensDirectionChanged: widget.onCameraLensDirectionChanged,
+        ),
+
+        Positioned(
+          bottom: 100,
+          child: Container(
+            padding: EdgeInsets.all(12),
+            color: Colors.black54,
+            child: Text(
+              widget.faceDetected ? "✓ Face Captured!" : "🔍 Searching for face...",
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+          ),
+        )
+      ],
     );
   }
 
