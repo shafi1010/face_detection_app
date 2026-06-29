@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import '../../domain/entities/face_data.dart';
 import '../../domain/repositories/face_detection_repository.dart';
@@ -27,9 +28,6 @@ class FaceDetectionRepositoryImpl implements FaceDetectionRepository {
     required int rotation,
     required bool isFrontCamera,
   }) async {
-    // This method accepts raw bytes for flexibility, but internally
-    // the datasource uses CameraImage. The main detection path
-    // goes through processCameraImage instead.
     throw UnimplementedError('Use processCameraImage for live stream');
   }
 

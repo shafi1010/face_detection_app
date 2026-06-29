@@ -141,9 +141,9 @@ class FaceDetectionProvider extends ChangeNotifier {
     }
   }
 
-  void Function(Uint8List imageBytes)? _onNavigateToPreview;
+  Future<void> Function(Uint8List imageBytes)? _onNavigateToPreview;
 
-  void setNavigationCallback(void Function(Uint8List imageBytes) callback) {
+  void setNavigationCallback(Future<void> Function(Uint8List imageBytes) callback) {
     _onNavigateToPreview = callback;
   }
 

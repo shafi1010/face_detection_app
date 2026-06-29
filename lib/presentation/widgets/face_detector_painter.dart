@@ -1,5 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_commons/google_mlkit_commons.dart';
 
 import '../../data/utils/coordinate_translator.dart';
 import '../../domain/entities/face_data.dart';

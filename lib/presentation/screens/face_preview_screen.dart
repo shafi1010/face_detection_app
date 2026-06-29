@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 class FacePreviewScreen extends StatelessWidget {
   final Uint8List imageBytes;
 
-  const FacePreviewScreen({Key? key, required this.imageBytes}) : super(key: key);
+  const FacePreviewScreen({super.key, required this.imageBytes});
 
   @override
   Widget build(BuildContext context) {
