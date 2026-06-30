@@ -6,6 +6,7 @@ import '../core/theme/app_theme.dart';
 import '../data/datasources/camera_datasource.dart';
 import '../data/datasources/mlkit_face_datasource.dart';
 import '../data/repositories/face_detection_repository_impl.dart';
+import '../data/utils/blink_detector.dart';
 import '../presentation/widgets/face_detector_painter.dart';
 
 class EnrollmentScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _EnrollmentScreenState extends State<EnrollmentScreen> {
   final _cameraDatasource = CameraDatasource();
   final _mlKitDatasource = MlKitFaceDatasource();
   late final FaceDetectionRepositoryImpl _repository;
+  final _blinkDetector = BlinkDetector();
 
   CustomPaint? _customPaint;
   bool _isBusy = false;
@@ -69,15 +71,31 @@ class _EnrollmentScreenState extends State<EnrollmentScreen> {
         });
       }
 
-      if (faces.isNotEmpty && faces.first.isGoodQuality && !_captured) {
-        _captured = true;
-        _statusText = 'Face captured!';
-        if (mounted) setState(() {});
-        await _uploadForEnrollment();
+      if (faces.isNotEmpty && !_captured) {
+        final primaryFace = faces.first;
+        if (primaryFace.isGoodQuality) {
+          _blinkDetector.processFrame(primaryFace);
+          switch (_blinkDetector.state) {
+            case LivenessState.waitingForFace:
+              _statusText = 'Position your face in the frame';
+            case LivenessState.needBlink:
+              _statusText = 'Please blink to verify';
+            case LivenessState.verified:
+              _captured = true;
+              _statusText = 'Liveness verified!';
+              if (mounted) setState(() {});
+              await _uploadForEnrollment();
+              return;
+          }
+        } else {
+          _statusText = 'Face detected, adjust position';
+        }
       } else {
-        _statusText = faces.isNotEmpty ? 'Adjust position — keep face centered' : 'No face detected';
-        if (mounted) setState(() {});
+        _blinkDetector.reset();
+        _statusText = 'No face detected';
       }
+
+      if (mounted) setState(() {});
     } catch (e) {
       _statusText = 'Error: $e';
       if (mounted) setState(() {});
