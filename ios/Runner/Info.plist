@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Face Detection App</string>
+	<string>FaceWatch</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -45,5 +45,18 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>processing</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>FaceWatch uses the camera for face enrollment and authentication</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>FaceWatch uses Face ID to secure the app</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.facewatch.refresh</string>
+	</array>
 </dict>
 </plist>

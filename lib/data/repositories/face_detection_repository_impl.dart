@@ -52,6 +52,8 @@ class FaceDetectionRepositoryImpl implements FaceDetectionRepository {
       headEulerAngleY: face.headEulerAngleY,
       headEulerAngleZ: face.headEulerAngleZ,
       smilingProbability: face.smilingProbability,
+      leftEyeOpenProb: face.leftEyeOpenProbability,
+      rightEyeOpenProb: face.rightEyeOpenProbability,
     );
   }
 }
