@@ -14,6 +14,7 @@ class MlKitFaceDatasource {
   }) : _detector = FaceDetector(
           options: options ??
               FaceDetectorOptions(
+                enableClassification: true,
                 enableContours: true,
                 enableLandmarks: true,
                 performanceMode: FaceDetectorMode.fast,
