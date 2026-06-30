@@ -51,21 +51,10 @@ class _FaceWatchAppState extends State<FaceWatchApp> {
     );
 
     _router = AppRouter.create(_authProvider);
-
-    _authProvider.addListener(_onAuthChanged);
-  }
-
-  void _onAuthChanged() {
-    if (_authProvider.isAuthenticated) {
-      widget.wsClient.connect();
-    } else {
-      widget.wsClient.disconnect();
-    }
   }
 
   @override
   void dispose() {
-    _authProvider.removeListener(_onAuthChanged);
     widget.wsClient.disconnect();
     super.dispose();
   }

@@ -27,11 +27,7 @@ class _SplashScreenState extends State<SplashScreen> {
     await auth.tryAutoLogin();
 
     if (!mounted) return;
-    if (auth.isAuthenticated) {
-      context.go('/dashboard');
-    } else {
-      context.go('/login');
-    }
+    context.go('/enroll');
   }
 
   @override

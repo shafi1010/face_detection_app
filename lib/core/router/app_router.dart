@@ -22,17 +22,6 @@ class AppRouter {
       navigatorKey: _rootNavigatorKey,
       initialLocation: '/splash',
       refreshListenable: authProvider,
-      redirect: (context, state) {
-        final isLoggedIn = authProvider.isAuthenticated;
-        final isSplash = state.matchedLocation.startsWith('/splash');
-        final isLogin = state.matchedLocation.startsWith('/login');
-
-        if (isSplash) return null;
-
-        if (!isLoggedIn && !isLogin) return '/login';
-        if (isLoggedIn && isLogin) return '/dashboard';
-        return null;
-      },
       routes: [
         GoRoute(
           path: '/splash',
