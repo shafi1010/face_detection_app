@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../data/datasources/camera_datasource.dart';
 import '../../data/datasources/mlkit_face_datasource.dart';
 import '../../data/repositories/face_detection_repository_impl.dart';
+import '../../data/utils/blink_detector.dart';
 import '../../domain/entities/face_data.dart';
 import '../widgets/face_detector_painter.dart';
 
@@ -13,6 +14,7 @@ class FaceDetectionProvider extends ChangeNotifier {
   final CameraDatasource _cameraDatasource;
   final MlKitFaceDatasource _mlKitDatasource;
   late final FaceDetectionRepositoryImpl _repository;
+  final BlinkDetector _blinkDetector = BlinkDetector();
 
   CustomPaint? _customPaint;
   String _statusText = '';
@@ -84,11 +86,20 @@ class FaceDetectionProvider extends ChangeNotifier {
       if (faces.isNotEmpty) {
         final primaryFace = faces.first;
         if (primaryFace.isGoodQuality) {
-          await _captureAndNavigate();
+          _blinkDetector.processFrame(primaryFace);
+          switch (_blinkDetector.state) {
+            case LivenessState.waitingForFace:
+              _statusText = 'Position your face in the frame';
+            case LivenessState.needBlink:
+              _statusText = 'Please blink to verify';
+            case LivenessState.verified:
+              await _captureAndNavigate();
+          }
         } else {
           _statusText = 'Face detected, adjust position';
         }
       } else {
+        _blinkDetector.reset();
         _statusText = 'No face detected';
       }
     } catch (e) {
@@ -114,7 +125,7 @@ class FaceDetectionProvider extends ChangeNotifier {
   }
 
   Future<void> _captureAndNavigate() async {
-    _statusText = 'Face detected! Capturing...';
+    _statusText = 'Liveness verified! Capturing...';
     _faceDetected = true;
     notifyListeners();
 
@@ -122,6 +133,7 @@ class FaceDetectionProvider extends ChangeNotifier {
 
     if (imageBytes != null) {
       _lastCaptureTime = DateTime.now();
+      _blinkDetector.reset();
       await _navigateToPreview(imageBytes);
       _faceDetected = false;
       _statusText = '';
@@ -134,8 +146,6 @@ class FaceDetectionProvider extends ChangeNotifier {
   }
 
   Future<void> _navigateToPreview(Uint8List imageBytes) async {
-    // Navigation should be handled by the screen, not the provider.
-    // This will be passed as a callback.
     if (_onNavigateToPreview != null) {
       await _onNavigateToPreview!(imageBytes);
     }
